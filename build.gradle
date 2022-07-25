@@ -1,0 +1,92 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+}
+
+group 'org.digitalforge'
+version = '1.0.0'
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+
+}
+
+test {
+    useJUnitPlatform()
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+[compileJava, compileTestJava]*.options.collect { options ->
+    options.compilerArgs.add '-parameters'
+    options.encoding = 'UTF-8'
+}
+
+javadoc {
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            url = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+            credentials {
+                username = sonatypeUsername
+                password = sonatypePassword
+            }
+        }
+    }
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            pom {
+
+                name = 'Log4JDBC'
+                description = 'Logging JDBC driver wrapper'
+                url = 'https://github.com/DigitalForgeSoftworks/log4jdbc/'
+
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'zreed'
+                        name = 'Zachary Reed'
+                        email = 'zach@digitalforge.org'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:https://github.com/DigitalForgeSoftworks/log4jdbc.git'
+                    developerConnection = 'scm:git:git@bitbucket.org:DigitalForgeSoftworks/log4jdbc.git'
+                    url = 'https://github.com/DigitalForgeSoftworks/log4jdbc/'
+                }
+
+            }
+        }
+    }
+}
+
+signing {
+    useGpgCmd()
+    sign publishing.publications.mavenJava
+}
