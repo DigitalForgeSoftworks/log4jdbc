@@ -26,7 +26,7 @@ public class PostLogProfilerProcessor {
     //todo:  needs to be able to gracefully handle sql exceptions in log output
 
     /**
-     * Post Process log4jdbc sqltiming log data.
+     * Post Process Log4JDBC sqltiming log data.
      *
      * @param args command line arguments.  Expects one argument, the name of the file to post process.
      * @throws Exception if something goes wrong during processing.

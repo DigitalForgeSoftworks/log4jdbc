@@ -4,7 +4,7 @@ import org.digitalforge.log4jdbc.JdbcSpy;
 
 /**
  * Delegates JdbcSpy events to a logger.
- * This interface is used for all logging activity used by log4jdbc and hides the specific implementation
+ * This interface is used for all logging activity used by Log4JDBC and hides the specific implementation
  * of any given logging system from log4jdbc.
  *
  */

@@ -38,7 +38,7 @@ import org.digitalforge.log4jdbc.formatter.SqlServerParameterFormatter;
  * <p>
  * The autoloading behavior can be disabled by setting a property:
  * <b>log4jdbc.auto.load.popular.drivers</b> to false. If that is done, then the
- * only drivers that log4jdbc will attempt to load are the ones specified in
+ * only drivers that Log4JDBC will attempt to load are the ones specified in
  * <b>log4jdbc.drivers</b>.
  * <p>
  * If any of the above driver classes cannot be loaded, the driver continues on
@@ -73,7 +73,7 @@ public class LoggingDriver implements Driver {
 
     static {
 
-        log.debug("... log4jdbc initializing ...");
+        log.debug("... Log4JDBC initializing ...");
 
         config = new LoggingDriverConfig();
 
@@ -84,9 +84,9 @@ public class LoggingDriver implements Driver {
             }
         };
 
-        // The Set of drivers that the log4jdbc driver will preload at instantiation
+        // The Set of drivers that the Log4JDBC driver will preload at instantiation
         // time. The driver can spy on any driver type, it's just a little bit
-        // easier to configure log4jdbc if it's one of these types!
+        // easier to configure Log4JDBC if it's one of these types!
 
         Set<String> subDrivers = new TreeSet<>();
 
@@ -109,7 +109,7 @@ public class LoggingDriver implements Driver {
         }
         catch(SQLException ex) {
             // this exception should never be thrown
-            throw new RuntimeException("Could not register log4jdbc driver!", ex);
+            throw new RuntimeException("Could not register Log4JDBC driver!", ex);
         }
 
         // instantiate all the supported drivers and remove
@@ -126,7 +126,7 @@ public class LoggingDriver implements Driver {
         }
 
         if(subDrivers.isEmpty()) {
-            log.debug("WARNING!  log4jdbc couldn't find any underlying jdbc drivers.");
+            log.debug("WARNING!  Log4JDBC couldn't find any underlying jdbc drivers.");
         }
 
         SqlServerParameterFormatter sqlServer = new SqlServerParameterFormatter();
@@ -144,7 +144,7 @@ public class LoggingDriver implements Driver {
         parameterFormatters.put("com.mysql.cj.jdbc.Driver", mySql);
         parameterFormatters.put("org.mariadb.jdbc.Driver", mySql);
 
-        log.debug("... log4jdbc initialized! ...");
+        log.debug("... Log4JDBC initialized! ...");
 
     }
 
@@ -256,6 +256,12 @@ public class LoggingDriver implements Driver {
      * @throws SQLException if a database access error occurs.
      */
     private Driver getUnderlyingDriver(String url) throws SQLException {
+
+        if(!url.startsWith("jdbc:log4")) {
+            return null;
+        }
+
+        url = url.substring(9);
 
         Enumeration<Driver> e = DriverManager.getDrivers();
 

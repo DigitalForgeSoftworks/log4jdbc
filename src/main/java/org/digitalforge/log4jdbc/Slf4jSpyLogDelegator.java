@@ -57,13 +57,13 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator {
     // admin/setup logging for log4jdbc.
 
     /**
-     * Logger just for debugging things within log4jdbc itself (admin, setup,
+     * Logger just for debugging things within Log4JDBC itself (admin, setup,
      * etc.)
      */
     private final Logger debugLogger = LoggerFactory.getLogger("log4jdbc.debug");
 
     /**
-     * Determine if any of the 5 log4jdbc spy loggers are turned on (jdbc.audit |
+     * Determine if any of the 5 Log4JDBC spy loggers are turned on (jdbc.audit |
      * jdbc.resultset | jdbc.sqlonly | jdbc.sqltiming | jdbc.connection)
      *
      * @return true if any of the 5 spy jdbc/sql loggers are enabled at debug info
@@ -402,7 +402,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator {
                 }
                 int j = lastApplicationCall;
 
-                // if app not found, then use whoever was the last guy that called a log4jdbc class
+                // if app not found, then use whoever was the last guy that called a Log4JDBC class
                 if(j == 0) {
                     j = 1 + firstLog4jdbcCall;
                 }
