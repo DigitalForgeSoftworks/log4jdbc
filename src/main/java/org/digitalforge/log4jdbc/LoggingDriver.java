@@ -309,6 +309,8 @@ public class LoggingDriver implements Driver {
 
         lastUnderlyingDriverRequested = driver;
 
+        url = url.substring(9);
+
         Connection con = driver.connect(url, info);
 
         if(con == null) {
@@ -358,6 +360,8 @@ public class LoggingDriver implements Driver {
         }
 
         lastUnderlyingDriverRequested = driver;
+
+        url = url.substring(9);
 
         return driver.getPropertyInfo(url, info);
 
