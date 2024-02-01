@@ -31,6 +31,8 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
      */
     protected S delegate;
 
+    private String currentSql;
+
     /**
      * Get the delegate Statement that this LoggingStatement wraps.
      *
@@ -38,6 +40,10 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
      */
     public S getDelegate() {
         return delegate;
+    }
+
+    public String getCurrentSql() {
+        return currentSql;
     }
 
     /**
@@ -211,7 +217,7 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
      * @param value return Object.
      * @return the return Object as passed in.
      */
-    protected Object reportReturn(String methodCall, Object value) {
+    protected <T> T reportReturn(String methodCall, T value) {
         reportAllReturns(methodCall, "" + value);
         return value;
     }
@@ -282,18 +288,20 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
     }
 
     private void reportSql2(String sql, String methodCall) {
+        currentSql = sql;
         log.sqlOccured(this, methodCall, sql);
     }
 
     private void reportSqlTiming2(long execTimeNanoSec, String sql, String methodCall) {
         log.sqlTimingOccured(this, execTimeNanoSec, methodCall, sql);
+        currentSql = null;
     }
 
     // implementation of interface methods
     public SQLWarning getWarnings() throws SQLException {
         String methodCall = "getWarnings()";
         try {
-            return (SQLWarning)reportReturn(methodCall, delegate.getWarnings());
+            return reportReturn(methodCall, delegate.getWarnings());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -435,7 +443,7 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
             int fieldSize = ("" + j).length();
 
             for(int i = 0; i < j; ) {
-                sql = (String)currentBatch.get(i);
+                sql = currentBatch.get(i);
                 batchReport.append("\n");
                 batchReport.append(Utilities.rightJustify(fieldSize, "" + (++i)));
                 batchReport.append(":  ");
@@ -461,7 +469,7 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
             throw s;
         }
         currentBatch.clear();
-        return (int[])reportReturn(methodCall, updateResults);
+        return reportReturn(methodCall, updateResults);
     }
 
     public void setFetchSize(int rows) throws SQLException {
@@ -489,7 +497,7 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
 
     public Connection getConnection() throws SQLException {
         String methodCall = "getConnection()";
-        return (Connection)reportReturn(methodCall, connection);
+        return reportReturn(methodCall, connection);
     }
 
     public ResultSet getGeneratedKeys() throws SQLException {
@@ -497,10 +505,10 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
         try {
             ResultSet r = delegate.getGeneratedKeys();
             if(r == null) {
-                return (ResultSet)reportReturn(methodCall, r);
+                return reportReturn(methodCall, r);
             }
             else {
-                return (ResultSet)reportReturn(methodCall, new LoggingResultSet(this, r));
+                return reportReturn(methodCall, new LoggingResultSet(this, r));
             }
         }
         catch(SQLException s) {
@@ -564,7 +572,7 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
             ResultSet result = delegate.executeQuery(sql);
             reportStatementSqlTiming(System.nanoTime() - tstartNano, sql, methodCall);
             LoggingResultSet r = new LoggingResultSet(this, result);
-            return (ResultSet)reportReturn(methodCall, r);
+            return reportReturn(methodCall, r);
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql, System.nanoTime() - tstartNano);
@@ -762,7 +770,7 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
 
         String sql;
         for(int i = 0; i < j; ) {
-            sql = (String)currentBatch.get(i);
+            sql = currentBatch.get(i);
             batchReport.append("\n");
             batchReport.append(Utilities.rightJustify(fieldSize, "" + (++i)));
             batchReport.append(":  ");
@@ -773,9 +781,9 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
         reportSql(sql, methodCall);
         long tstartNano = System.nanoTime();
 
-        int[] updateResults;
+        long[] updateResults;
         try {
-            updateResults = delegate.executeBatch();
+            updateResults = delegate.executeLargeBatch();
             reportSqlTiming(System.nanoTime() - tstartNano, sql, methodCall);
         }
         catch(SQLException s) {
@@ -783,7 +791,7 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
             throw s;
         }
         currentBatch.clear();
-        return (long[])reportReturn(methodCall, updateResults);
+        return reportReturn(methodCall, updateResults);
     }
 
     @Override
@@ -949,10 +957,10 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
         try {
             ResultSet r = delegate.getResultSet();
             if(r == null) {
-                return (ResultSet)reportReturn(methodCall, r);
+                return reportReturn(methodCall, r);
             }
             else {
-                return (ResultSet)reportReturn(methodCall, new LoggingResultSet(this, r));
+                return reportReturn(methodCall, new LoggingResultSet(this, r));
             }
         }
         catch(SQLException s) {
@@ -981,6 +989,9 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
             reportException(methodCall, s);
             throw s;
         }
+        finally {
+            LoggingConnection.getConnectionTracker().untrack(this);
+        }
         reportReturn(methodCall);
     }
 
@@ -999,8 +1010,7 @@ public class LoggingStatement<S extends Statement> implements Statement, JdbcSpy
         String methodCall = "unwrap(" + (iface == null ? "null" : iface.getName()) + ")";
         try {
             //todo: double check this logic
-            return (T)reportReturn(methodCall, (iface != null && (iface == Connection.class || iface == JdbcSpy.class)) ? (T)this : delegate
-                .unwrap(iface));
+            return reportReturn(methodCall, (iface != null && (iface == Connection.class || iface == JdbcSpy.class)) ? (T)this : delegate.unwrap(iface));
         }
         catch(SQLException s) {
             reportException(methodCall, s);

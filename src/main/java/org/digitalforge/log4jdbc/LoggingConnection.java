@@ -6,6 +6,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.digitalforge.log4jdbc.formatter.ParameterFormatter;
+import org.digitalforge.log4jdbc.util.ConnectionTracker;
 
 /**
  * Wraps a JDBC Connection and reports method calls, returns and exceptions.
@@ -21,45 +22,15 @@ public class LoggingConnection implements Connection, JdbcSpy {
     /**
      * Contains a mapping of connectionNumber to open LoggingConnection objects.
      */
-    private static final Map<Integer, LoggingConnection> connectionTracker = Collections.synchronizedMap(new WeakHashMap<>());
+    private static final ConnectionTracker connectionTracker = new ConnectionTracker();
 
     private final int connectionNumber;
 
     private Connection delegate;
     private ParameterFormatter parameterFormatter;
 
-    /**
-     * Get a dump of how many connections are open, and which connection numbers
-     * are open.
-     *
-     * @return an open connection dump.
-     */
-    public static String getOpenConnectionsDump() {
-
-        StringBuilder sb = new StringBuilder();
-        int size;
-        Integer[] keys;
-
-        synchronized(connectionTracker) {
-            size = connectionTracker.size();
-            if(size == 0) {
-                return "open connections: none";
-            }
-            keys = connectionTracker.keySet().toArray(new Integer[size]);
-        }
-
-        Arrays.sort(keys);
-
-        sb.append("open connections:  ");
-        for(Integer key : keys) {
-            sb.append(key);
-            sb.append(" ");
-        }
-
-        sb.append("(");
-        sb.append(size);
-        sb.append(")");
-        return sb.toString();
+    public static ConnectionTracker getConnectionTracker() {
+        return connectionTracker;
     }
 
     /**
@@ -88,7 +59,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
 
         this.connectionNumber = connectionCounter.incrementAndGet();
 
-        connectionTracker.put(this.connectionNumber, this);
+        connectionTracker.track(this.connectionNumber, this);
 
         //log.info("Connection " + this.connectionNumber + " opened");
         log.connectionOpened(this);
@@ -156,7 +127,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
         return value;
     }
 
-    private Object reportReturn(String methodCall, Object value) {
+    private <T> T reportReturn(String methodCall, T value) {
         reportAllReturns(methodCall, "" + value);
         return value;
     }
@@ -183,7 +154,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public SQLWarning getWarnings() throws SQLException {
         String methodCall = "getWarnings()";
         try {
-            return (SQLWarning)reportReturn(methodCall, delegate.getWarnings());
+            return reportReturn(methodCall, delegate.getWarnings());
         }
         catch(SQLException ex) {
             reportException(methodCall, ex);
@@ -195,7 +166,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public Savepoint setSavepoint() throws SQLException {
         String methodCall = "setSavepoint()";
         try {
-            return (Savepoint)reportReturn(methodCall, delegate.setSavepoint());
+            return reportReturn(methodCall, delegate.setSavepoint());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -233,7 +204,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public DatabaseMetaData getMetaData() throws SQLException {
         String methodCall = "getMetaData()";
         try {
-            return (DatabaseMetaData)reportReturn(methodCall, delegate.getMetaData());
+            return reportReturn(methodCall, delegate.getMetaData());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -259,7 +230,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "createStatement()";
         try {
             Statement statement = delegate.createStatement();
-            return (Statement)reportReturn(methodCall, new LoggingStatement(this, statement));
+            LoggingStatement lstatement = reportReturn(methodCall, new LoggingStatement(this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -272,7 +245,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "createStatement(" + resultSetType + ", " + resultSetConcurrency + ")";
         try {
             Statement statement = delegate.createStatement(resultSetType, resultSetConcurrency);
-            return (Statement)reportReturn(methodCall, new LoggingStatement(this, statement));
+            LoggingStatement lstatement = reportReturn(methodCall, new LoggingStatement(this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -285,7 +260,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "createStatement(" + resultSetType + ", " + resultSetConcurrency + ", " + resultSetHoldability + ")";
         try {
             Statement statement = delegate.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability);
-            return (Statement)reportReturn(methodCall, new LoggingStatement(this, statement));
+            LoggingStatement lstatement = reportReturn(methodCall, new LoggingStatement(this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -311,7 +288,10 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareStatement(" + sql + ")";
         try {
             PreparedStatement statement = delegate.prepareStatement(sql);
-            return (PreparedStatement)reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            LoggingPreparedStatement lstatement = reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
+
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -324,7 +304,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareStatement(" + sql + ", " + autoGeneratedKeys + ")";
         try {
             PreparedStatement statement = delegate.prepareStatement(sql, autoGeneratedKeys);
-            return (PreparedStatement)reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            LoggingPreparedStatement lstatement = reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -337,7 +319,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareStatement(" + sql + ", " + resultSetType + ", " + resultSetConcurrency + ")";
         try {
             PreparedStatement statement = delegate.prepareStatement(sql, resultSetType, resultSetConcurrency);
-            return (PreparedStatement)reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            LoggingPreparedStatement lstatement = reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -350,7 +334,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareStatement(" + sql + ", " + resultSetType + ", " + resultSetConcurrency + ", " + resultSetHoldability + ")";
         try {
             PreparedStatement statement = delegate.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
-            return (PreparedStatement)reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            LoggingPreparedStatement lstatement = reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -364,7 +350,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareStatement(" + sql + ", " + columnIndexes + ")";
         try {
             PreparedStatement statement = delegate.prepareStatement(sql, columnIndexes);
-            return (PreparedStatement)reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            LoggingPreparedStatement lstatement = reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -376,7 +364,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public Savepoint setSavepoint(String name) throws SQLException {
         String methodCall = "setSavepoint(" + name + ")";
         try {
-            return (Savepoint)reportReturn(methodCall, delegate.setSavepoint(name));
+            return reportReturn(methodCall, delegate.setSavepoint(name));
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -390,7 +378,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareStatement(" + sql + ", " + columnNames + ")";
         try {
             PreparedStatement statement = delegate.prepareStatement(sql, columnNames);
-            return (PreparedStatement)reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            LoggingPreparedStatement lstatement = reportReturn(methodCall, new LoggingPreparedStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -402,7 +392,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public Clob createClob() throws SQLException {
         String methodCall = "createClob()";
         try {
-            return (Clob)reportReturn(methodCall, delegate.createClob());
+            return reportReturn(methodCall, delegate.createClob());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -414,7 +404,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public Blob createBlob() throws SQLException {
         String methodCall = "createBlob()";
         try {
-            return (Blob)reportReturn(methodCall, delegate.createBlob());
+            return reportReturn(methodCall, delegate.createBlob());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -426,7 +416,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public NClob createNClob() throws SQLException {
         String methodCall = "createNClob()";
         try {
-            return (NClob)reportReturn(methodCall, delegate.createNClob());
+            return reportReturn(methodCall, delegate.createNClob());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -438,7 +428,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public SQLXML createSQLXML() throws SQLException {
         String methodCall = "createSQLXML()";
         try {
-            return (SQLXML)reportReturn(methodCall, delegate.createSQLXML());
+            return reportReturn(methodCall, delegate.createSQLXML());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -489,7 +479,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public String getClientInfo(String name) throws SQLException {
         String methodCall = "getClientInfo(" + name + ")";
         try {
-            return (String)reportReturn(methodCall, delegate.getClientInfo(name));
+            return reportReturn(methodCall, delegate.getClientInfo(name));
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -501,7 +491,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public Properties getClientInfo() throws SQLException {
         String methodCall = "getClientInfo()";
         try {
-            return (Properties)reportReturn(methodCall, delegate.getClientInfo());
+            return reportReturn(methodCall, delegate.getClientInfo());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -514,7 +504,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
         //todo: dump elements?
         String methodCall = "createArrayOf(" + typeName + ", " + elements + ")";
         try {
-            return (Array)reportReturn(methodCall, delegate.createArrayOf(typeName, elements));
+            return reportReturn(methodCall, delegate.createArrayOf(typeName, elements));
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -527,7 +517,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
         //todo: dump attributes?
         String methodCall = "createStruct(" + typeName + ", " + attributes + ")";
         try {
-            return (Struct)reportReturn(methodCall, delegate.createStruct(typeName, attributes));
+            return reportReturn(methodCall, delegate.createStruct(typeName, attributes));
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -552,7 +542,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public String getSchema() throws SQLException {
         String methodCall = "getSchema()";
         try {
-            return (String)reportReturn(methodCall, delegate.getSchema());
+            return reportReturn(methodCall, delegate.getSchema());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -628,7 +618,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareCall(" + sql + ")";
         try {
             CallableStatement statement = delegate.prepareCall(sql);
-            return (CallableStatement)reportReturn(methodCall, new LoggingCallableStatement(sql, this, statement));
+            LoggingCallableStatement lstatement = reportReturn(methodCall, new LoggingCallableStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -641,7 +633,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareCall(" + sql + ", " + resultSetType + ", " + resultSetConcurrency + ")";
         try {
             CallableStatement statement = delegate.prepareCall(sql, resultSetType, resultSetConcurrency);
-            return (CallableStatement)reportReturn(methodCall, new LoggingCallableStatement(sql, this, statement));
+            LoggingCallableStatement lstatement = reportReturn(methodCall, new LoggingCallableStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -654,7 +648,9 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "prepareCall(" + sql + ", " + resultSetType + ", " + resultSetConcurrency + ", " + resultSetHoldability + ")";
         try {
             CallableStatement statement = delegate.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
-            return (CallableStatement)reportReturn(methodCall, new LoggingCallableStatement(sql, this, statement));
+            LoggingCallableStatement lstatement = reportReturn(methodCall, new LoggingCallableStatement(sql, this, statement));
+            connectionTracker.track(lstatement);
+            return lstatement;
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -679,7 +675,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public String nativeSQL(String sql) throws SQLException {
         String methodCall = "nativeSQL(" + sql + ")";
         try {
-            return (String)reportReturn(methodCall, delegate.nativeSQL(sql));
+            return reportReturn(methodCall, delegate.nativeSQL(sql));
         }
         catch(SQLException s) {
             reportException(methodCall, s, sql);
@@ -691,7 +687,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public Map<String,Class<?>> getTypeMap() throws SQLException {
         String methodCall = "getTypeMap()";
         try {
-            return (Map<String,Class<?>>)reportReturn(methodCall, delegate.getTypeMap());
+            return reportReturn(methodCall, delegate.getTypeMap());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -716,7 +712,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
     public String getCatalog() throws SQLException {
         String methodCall = "getCatalog()";
         try {
-            return (String)reportReturn(methodCall, delegate.getCatalog());
+            return reportReturn(methodCall, delegate.getCatalog());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -824,9 +820,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
             throw s;
         }
         finally {
-            synchronized(connectionTracker) {
-                connectionTracker.remove(connectionNumber);
-            }
+            connectionTracker.untrack(connectionNumber);
             log.connectionClosed(this);
         }
         reportReturn(methodCall);
@@ -837,8 +831,7 @@ public class LoggingConnection implements Connection, JdbcSpy {
         String methodCall = "unwrap(" + (iface == null ? "null" : iface.getName()) + ")";
         try {
             //todo: double check this logic
-            return (T)reportReturn(methodCall, (iface != null && (iface == Connection.class || iface == JdbcSpy.class)) ? (T)this : delegate
-                .unwrap(iface));
+            return reportReturn(methodCall, (iface != null && (iface == Connection.class || iface == JdbcSpy.class)) ? (T)this : delegate.unwrap(iface));
         }
         catch(SQLException s) {
             reportException(methodCall, s);
