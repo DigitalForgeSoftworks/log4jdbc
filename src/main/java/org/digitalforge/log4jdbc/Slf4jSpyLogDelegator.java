@@ -440,7 +440,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator {
     public void connectionOpened(JdbcSpy spy) {
         if(connectionLogger.isDebugEnabled()) {
             connectionLogger.info(spy.getConnectionNumber() + ". Connection opened " + getDebugInfo());
-            connectionLogger.debug(LoggingConnection.getOpenConnectionsDump());
+            connectionLogger.debug(LoggingConnection.getConnectionTracker().getOpenConnectionsDump());
         }
         else {
             connectionLogger.info(spy.getConnectionNumber() + ". Connection opened");
@@ -455,7 +455,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator {
     public void connectionClosed(JdbcSpy spy) {
         if(connectionLogger.isDebugEnabled()) {
             connectionLogger.info(spy.getConnectionNumber() + ". Connection closed " + getDebugInfo());
-            connectionLogger.debug(LoggingConnection.getOpenConnectionsDump());
+            connectionLogger.debug(LoggingConnection.getConnectionTracker().getOpenConnectionsDump());
         }
         else {
             connectionLogger.info(spy.getConnectionNumber() + ". Connection closed");

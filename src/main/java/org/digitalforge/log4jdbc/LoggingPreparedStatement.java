@@ -68,6 +68,10 @@ public class LoggingPreparedStatement<S extends PreparedStatement> extends Loggi
 
     private String sql;
 
+    public String getCurrentSql() {
+        return sql;
+    }
+
     protected String dumpedSql() {
         if(LoggingDriver.config.isReportOriginalSql()) {
             return sql;
@@ -83,7 +87,7 @@ public class LoggingPreparedStatement<S extends PreparedStatement> extends Loggi
             // get stored argument
             synchronized(argTrace) {
                 try {
-                    arg = (String)argTrace.get(argIdx);
+                    arg = argTrace.get(argIdx);
                 }
                 catch(IndexOutOfBoundsException e) {
                     arg = "?";
@@ -472,7 +476,7 @@ public class LoggingPreparedStatement<S extends PreparedStatement> extends Loggi
     public ParameterMetaData getParameterMetaData() throws SQLException {
         String methodCall = "getParameterMetaData()";
         try {
-            return (ParameterMetaData)reportReturn(methodCall, delegate.getParameterMetaData());
+            return reportReturn(methodCall, delegate.getParameterMetaData());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -618,7 +622,7 @@ public class LoggingPreparedStatement<S extends PreparedStatement> extends Loggi
             ResultSet r = delegate.executeQuery();
             reportSqlTiming(System.nanoTime() - tstartNano, dumpedSql, methodCall);
             LoggingResultSet rsp = new LoggingResultSet(this, r);
-            return (ResultSet)reportReturn(methodCall, rsp);
+            return reportReturn(methodCall, rsp);
         }
         catch(SQLException s) {
             reportException(methodCall, s, dumpedSql, System.nanoTime() - tstartNano);
@@ -938,7 +942,7 @@ public class LoggingPreparedStatement<S extends PreparedStatement> extends Loggi
     public ResultSetMetaData getMetaData() throws SQLException {
         String methodCall = "getMetaData()";
         try {
-            return (ResultSetMetaData)reportReturn(methodCall, delegate.getMetaData());
+            return reportReturn(methodCall, delegate.getMetaData());
         }
         catch(SQLException s) {
             reportException(methodCall, s);
@@ -967,7 +971,7 @@ public class LoggingPreparedStatement<S extends PreparedStatement> extends Loggi
             //todo: double check this logic
             //NOTE: could call super.isWrapperFor to simplify this logic, but it would result in extra log output
             //because the super classes would be invoked, thus executing their logging methods too...
-            return (T)reportReturn(methodCall, (iface != null && (iface == PreparedStatement.class || iface == Statement.class || iface == JdbcSpy.class)) ? (T)this : delegate
+            return reportReturn(methodCall, (iface != null && (iface == PreparedStatement.class || iface == Statement.class || iface == JdbcSpy.class)) ? (T)this : delegate
                 .unwrap(iface));
         }
         catch(SQLException s) {
